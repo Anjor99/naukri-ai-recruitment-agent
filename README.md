@@ -1,105 +1,446 @@
 # Naukri.com — AI Recruitment & HR Support Agent
 
-## Part 1 — Dataset Design & RAG Core
+An AI-powered recruitment and HR support agent built for the **Naukri.com — Recruitment & HR** capstone track.
 
-### Task 1 — Dataset
+The system combines a deterministic job-application dataset, local retrieval-augmented generation (RAG), a LangGraph-orchestrated agent, tool use, conversational memory, structured output validation, input/output guardrails, and a FastAPI + MCP deployment layer with production-grade reliability controls (timeouts, retries, checkpointing).
 
-Created a seeded, deterministic job-application dataset in `dataset.py` with **50 records**.
+---
 
-Each record contains:
+## Table of Contents
 
-* `record_id`
-* `category`
-* `status`
-* `expected_salary_inr`
-* `days_since_created`
-* `flagged_priority_review`
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Architecture](#architecture)
+- [Setup](#setup)
+- [Running the Application](#running-the-application)
+- [Testing](#testing)
+- [Recommended Evaluation Order](#recommended-evaluation-order)
+- [Example Queries](#example-queries)
+- [Key Design Decisions](#key-design-decisions)
+- [Evaluation Artifacts](#evaluation-artifacts)
+- [Runtime Data](#runtime-data)
+- [Project Status](#project-status)
 
-The generator validates category/status coverage and the required priority-review percentage.
+---
 
-### Task 2 — Knowledge Base
+## Features
 
-Created **12 policy documents** covering all required HR/recruitment topics in the `knowledge_base/` directory.
+| Area | Capability |
+|---|---|
+| Data | Deterministic, seeded job-application dataset (50 records) |
+| Retrieval | Local embeddings (`all-MiniLM-L6-v2`) + ChromaDB, two chunking strategies |
+| Generation | Grounded generation with similarity-gated "I don't know" fallback |
+| Orchestration | LangGraph agent with routing, memory, and checkpointing |
+| Tools | Deterministic job-application status tool with escalation scoring |
+| Safety | Input guardrails (prompt injection, toxicity, PII masking) and output guardrails (toxicity, groundedness) |
+| Output | Schema-validated structured responses |
+| Deployment | FastAPI service and MCP server |
+| Observability | PII-safe structured JSONL logging |
+| Reliability | Node-level timeouts, global graph timeout, exponential-backoff retries |
 
-### Task 3 — RAG Indexing
+---
 
-Implemented two chunking strategies:
+## Project Structure
 
-* **Fixed-size with overlap:** 250-character chunks, 50-character overlap
-* **Sentence-based:** 2 sentences per chunk
+```text
+naukri-ai-support-agent/
+│
+├── README.md
+├── pyproject.toml
+├── uv.lock
+├── requirements.txt
+├── .env.example
+├── .gitignore
+├── dataset.py
+├── setup.py
+├── run.py
+├── mcp_server.py
+├── mcp_client.py
+│
+├── agent/
+│   ├── state.py
+│   ├── router.py
+│   ├── nodes.py
+│   ├── graph.py
+│   ├── tools.py
+│   ├── helpers.py
+│   ├── field_selector.py
+│   ├── memory.py
+│   ├── conversation.py
+│   ├── reliability.py
+│   └── api/
+│       ├── app.py
+│       ├── ask.py
+│       ├── document.py
+│       ├── models.py
+│       └── logging_utils.py
+│
+├── rag/
+│   ├── loader.py
+│   ├── chunking.py
+│   ├── embeddings.py
+│   ├── vector_store.py
+│   ├── generator.py
+│   ├── ingest.py
+│   └── cli.py
+│
+├── knowledge_base/          # 12 HR/recruitment policy documents
+├── tests/                   # 13 test modules
+├── scripts/
+│   └── demo.py
+├── evaluation/
+│   ├── calibration.md
+│   └── chunking_evaluation.md
+├── reports/
+└── data/
+    ├── chroma_db/
+    └── checkpoints.sqlite
+```
 
-Chunks are embedded locally using `all-MiniLM-L6-v2` and stored in separate persistent ChromaDB collections:
+---
 
-* `fixed_size_collection`
-* `sentence_based_collection`
+## Architecture
 
-### Task 4 — Grounded Generation
+```text
+                    ┌────────────────────┐
+                    │      User / API     │
+                    └─────────┬──────────┘
+                              │
+                              v
+                    ┌────────────────────┐
+                    │      Guardrails     │
+                    │  Input validation   │
+                    │   PII masking       │
+                    │  Prompt injection   │
+                    └─────────┬──────────┘
+                              │
+                              v
+                    ┌────────────────────┐
+                    │  LangGraph Router   │
+                    └─────────┬──────────┘
+                              │
+                 ┌────────────┴────────────┐
+                 │                         │
+                 v                         v
+        ┌─────────────────┐       ┌──────────────────┐
+        │       RAG        │       │ Application Tool │
+        │  ChromaDB         │       │ JOB_APPLICATIONS │
+        │  Embeddings       │       │ Status lookup     │
+        │  Grounding        │       │ Escalation        │
+        └────────┬────────┘       └─────────┬────────┘
+                 │                          │
+                 └────────────┬─────────────┘
+                              │
+                              v
+                    ┌────────────────────┐
+                    │  Structured Output   │
+                    │ + Output Guardrail   │
+                    └─────────┬──────────┘
+                              │
+                              v
+                    ┌────────────────────┐
+                    │    API Response      │
+                    └────────────────────┘
+```
 
-Implemented similarity-based retrieval gating with an empirically calibrated threshold.
+Supporting infrastructure: conversation memory (`memory.json`), SQLite-backed LangGraph checkpointing, an MCP server exposing the status tool, and PII-safe structured logging.
 
-* In-scope similarity range: **0.4859–0.7930**
-* Out-of-scope similarity range: **-0.0160–0.0733**
-* Selected threshold: **0.30**
+---
 
-Queries below the threshold return an "I don't know" fallback.
+## Setup
 
-The generator supports both deterministic `MOCK_LLM` execution and an optional Groq-based real LLM.
+### Requirements
 
-Detailed calibration results and measured values are documented in [`evaluation/calibration.md`](evaluation/caliberation_results.md).
+- Python 3.12+
+- Git
+- Internet connection (for initial dependency/model downloads)
+- Windows, macOS, or Linux
 
-### Task 5 — Chunking Evaluation
+### Option 1 — Using `uv`
 
-Evaluated both chunking strategies on the same five Task 4 queries using document-level Precision@3 and Recall@3.
+```bash
+uv sync
+uv run python setup.py
+```
 
-| Strategy           | Precision@3 |  Recall@3 |
-| ------------------ | ----------: | --------: |
-| Fixed-size-overlap |   **0.467** | **1.000** |
-| Sentence-based     |   **0.433** | **1.000** |
+### Option 2 — Using standard Python + pip
 
-Fixed-size-overlap was selected because it achieved slightly higher Precision@3 while maintaining the same perfect Recall@3.
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1        # Windows PowerShell
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-Detailed per-query calculations and retrieval results are available in [`evaluation/chunking_evaluation.md`](evaluation/chunking_evaluation.md).
+### Environment Variables
 
-## Part 2 — LangGraph Agent with Tools, Memory & Guardrails
+```bash
+copy .env.example .env
+```
 
-### Task 6 — Job Application Status Tool
+The project runs by default in deterministic `MOCK_LLM` mode and requires no external LLM API:
 
-Implemented `check_job_application_status(record_id)` in `agent/tools.py`. The tool looks up an application from the deterministic `JOB_APPLICATIONS` dataset using its `record_id` and returns the application status, expected salary, escalation score, and escalation recommendation.
+```env
+MOCK_LLM=true
+```
 
-#### Escalation Score
+For optional Groq-based generation:
 
-The escalation score combines the `flagged_priority_review` signal with a normalized recency signal derived from `days_since_created`.
+```env
+MOCK_LLM=false
+GROQ_API_KEY=your_api_key_here
+```
 
-The normalized recency score is calculated over the valid 0–30 day range:
+For offline Hugging Face model execution:
 
-`recency_score = (30 - days_since_created) / 30`
+```powershell
+$env:HF_HUB_OFFLINE="1"
+$env:TRANSFORMERS_OFFLINE="1"
+```
 
-A value of `1.0` represents an application created today, while `0.0` represents an application created 30 days ago.
+### Initial Project Setup
 
-The escalation score is:
+```bash
+python setup.py
+```
 
-`escalation_score = 0.5 × priority_flag + 0.5 × (1 - recency_score)`
+This script:
 
-where `priority_flag` is `1.0` when `flagged_priority_review` is `True`, otherwise `0.0`. The inverse of the recency score is used because applications that have been waiting longer should contribute more to escalation urgency.
+- Validates the deterministic application dataset
+- Checks that all 12 knowledge-base documents exist
+- Creates the ChromaDB storage directory
+- Builds the `fixed_size_collection` and `sentence_based_collection`
+- Embeds chunks using `all-MiniLM-L6-v2` and stores them persistently
 
-The resulting score is rounded to four decimal places and remains within the `[0, 1]` range.
+Re-run `setup.py` after a fresh checkout or whenever the local RAG index needs rebuilding.
 
-#### Escalation Threshold
+---
 
-The escalation threshold is **0.88**.
+## Running the Application
 
-In the generated 50-record dataset, the **80th percentile of `days_since_created` is 23 days**. Therefore, applications at or above 23 days represent approximately the oldest 20% of the generated applications.
+### Quick Demo
 
-At exactly 23 days, a priority-flagged application receives an escalation score of `0.8833`, which is just above the `0.88` threshold. In the generated dataset, **4 applications** meet both conditions: they are priority-flagged and at least 23 days old. All four receive an escalation recommendation.
+```bash
+python scripts/demo.py
+```
 
-#### Testing
+Exercises dataset generation, RAG retrieval, grounded and out-of-scope responses, application-status lookup, memory, guardrails, structured validation, MCP integration, and reliability configuration.
 
-Task 6 was tested using:
+### Full Application
 
-* `APP-0001` — 23-day priority application at the threshold boundary.
-* `APP-0031` — older priority application with a higher escalation score.
-* `APP-9999` — invalid record ID, which correctly raises `ValueError`.
+```bash
+python run.py
+```
 
-These tests verify the score calculation, escalation recommendation, and invalid-record handling.
+Starts:
 
+- FastAPI → `http://127.0.0.1:8000`
+- MCP → `http://127.0.0.1:8001/mcp`
 
+Run components individually:
+
+```bash
+python run.py api    # FastAPI only
+python run.py mcp    # MCP only
+```
+
+Stop with `Ctrl + C`.
+
+### FastAPI Usage
+
+Swagger docs: `http://127.0.0.1:8000/docs`
+
+Endpoints: `GET /health`, `POST /ask`, `POST /add-document`
+
+```json
+{
+  "query": "What is the notice period policy?",
+  "conversation_id": "demo-002"
+}
+```
+
+### MCP Usage
+
+```bash
+python run.py mcp
+```
+
+Endpoint: `http://127.0.0.1:8001/mcp`
+
+Exposes `check_job_application_status`, callable with IDs such as `APP-0001`, `APP-0031`.
+
+---
+
+## Testing
+
+Each test is an individually executable module (no combined test runner):
+
+```bash
+python -m tests.test_dataset
+python -m tests.test_rag
+python -m tests.test_chunking
+python -m tests.test_tool
+python -m tests.test_agent
+python -m tests.test_memory
+python -m tests.test_schema
+python -m tests.test_guardrails
+python -m tests.test_api
+python -m tests.test_logging
+python -m tests.test_rag_triad
+python -m tests.test_mcp
+python -m tests.test_checkpointing
+python -m tests.test_reliability
+```
+
+With `uv`, prefix any command with `uv run`, e.g. `uv run python -m tests.test_dataset`.
+
+---
+
+## Recommended Evaluation Order
+
+**1. Install dependencies**
+
+```bash
+uv sync
+# or
+pip install -r requirements.txt
+```
+
+**2. Build the RAG collections**
+
+```bash
+python setup.py
+```
+
+**3. Run the demo**
+
+```bash
+python scripts/demo.py
+```
+
+**4. Run the tests**
+
+Dataset and RAG:
+```bash
+python -m tests.test_dataset
+python -m tests.test_rag
+python -m tests.test_chunking
+```
+
+Agent and tools:
+```bash
+python -m tests.test_tool
+python -m tests.test_agent
+python -m tests.test_memory
+python -m tests.test_schema
+```
+
+Guardrails, API, and logging:
+```bash
+python -m tests.test_guardrails
+python -m tests.test_api
+python -m tests.test_logging
+```
+
+Evaluation, MCP, and reliability:
+```bash
+python -m tests.test_rag_triad
+python -m tests.test_mcp
+python -m tests.test_checkpointing
+python -m tests.test_reliability
+```
+
+---
+
+## Example Queries
+
+**RAG / Policy Questions**
+- What is the notice period policy?
+- How are interviews scheduled?
+- Who is eligible for remote work?
+- How does the referral bonus work?
+
+**Application Status**
+- What is the status of APP-0001?
+- Check application APP-0031
+
+**Follow-up Using Memory**
+1. "What is the status of APP-0001?"
+2. "What salary did I enter?" — resolved using the remembered application ID.
+
+**Out-of-scope Query**
+- "What is the capital of France?" — the grounding threshold prevents an unsupported HR answer.
+
+---
+
+## Key Design Decisions
+
+**Deterministic dataset** — A seeded dataset makes application-status behavior reproducible across runs and tests.
+
+**Local embeddings** — `all-MiniLM-L6-v2` avoids dependency on an external embedding API.
+
+**Grounded generation** — The system refuses to answer when retrieval similarity falls below the calibrated threshold (`0.30`) rather than relying on unrestricted LLM generation. Observed in-scope top-1 similarity ranged 0.4859–0.7930; out-of-scope ranged -0.0160–0.0733.
+
+**Fixed-size-overlap chunking** — Selected over sentence-based chunking for slightly higher Precision@3 (0.467 vs 0.433) while both maintained perfect Recall@3 (1.000).
+
+**Explicit routing** — Queries containing an application ID (e.g. `APP-0001`) are routed directly to the deterministic status tool rather than RAG.
+
+**Persistent conversation state** — Conversation IDs provide continuity across turns and double as LangGraph thread IDs for checkpointing.
+
+**Guardrails before and after generation** — Input validation reduces unsafe or malicious requests; output validation rejects unsupported or unsafe responses.
+
+**PII-safe logging** — Logs retain operational detail (conversation ID, trace ID, event, step, elapsed time, PII detection status) without storing raw sensitive data.
+
+**Reliability controls** — A 5-second node-level timeout on the RAG node, a 30-second global graph timeout, and a retry policy (max 3 attempts, 0.1s initial interval, 2.0x backoff, 0.4s max interval, jitter enabled) protect against slow or transient failures.
+
+---
+
+## Evaluation Artifacts
+
+| File | Contents |
+|---|---|
+| `evaluation/calibration.md` | Similarity calibration for grounded generation |
+| `evaluation/chunking_evaluation.md` | Precision@3 / Recall@3 comparison of chunking strategies |
+| `reports/rag_triad_evaluation.json` | Context relevance, groundedness, and answer relevance across all 12 in-scope topics and out-of-scope queries |
+
+---
+
+## Runtime Data
+
+The following are generated locally and should not be committed to Git:
+
+```text
+data/chroma_db/
+data/checkpoints.sqlite
+logs/
+memory.json
+```
+
+---
+
+## Project Status
+
+| Task | Status |
+|---|---|
+| 1 — Dataset | Complete |
+| 2 — Knowledge Base | Complete |
+| 3 — RAG Indexing | Complete |
+| 4 — Grounded Generation | Complete |
+| 5 — Chunking Evaluation | Complete |
+| 6 — Status Tool | Complete |
+| 7 — LangGraph Agent | Complete |
+| 8 — Conversation Memory | Complete |
+| 9 — Structured Output | Complete |
+| 10 — Guardrails | Complete |
+| 11 — FastAPI Deployment | Complete |
+| 12 — PII-safe Logging | Complete |
+| 13 — RAG Triad Evaluation | Complete |
+| 14 — MCP Integration | Complete |
+| 15 — SQLite Checkpointing | Complete |
+| 16 — Reliability | Complete |
+
+---
+
+## License
+
+This project was created as part of the **Naukri.com — Recruitment & HR** AI agent capstone project.
