@@ -67,7 +67,13 @@ def run_turn(
     }
 
     # 6. Run the LangGraph agent
-    final_state = app.invoke(input_state)
+    config = {
+    "configurable": {
+        "thread_id": conversation_id
+    }
+}
+
+    final_state = app.invoke(input_state, config=config)
 
     # 7. Preserve the record ID if the status tool found one
     status_result = final_state.get("status_result") or {}

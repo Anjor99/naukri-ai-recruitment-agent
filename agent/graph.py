@@ -1,4 +1,8 @@
+import sqlite3
+
 from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.sqlite import SqliteSaver
+
 from agent.state import AgentState
 from agent.nodes import (
     router_node,
@@ -10,12 +14,15 @@ from agent.nodes import (
 from agent.router import PossibleRoutes
 
 
+CHECKPOINT_DB = "data/checkpoints.sqlite"
+
+
 def route_decision(state: AgentState) -> str:
     """Read the route set by router_node and pick the next node."""
     return state["route"]
 
 
-def build_graph():
+def build_graph(checkpointer=None, interrupt_before=None):
     graph = StateGraph(AgentState)
 
     # Register nodes
@@ -38,15 +45,26 @@ def build_graph():
         },
     )
 
-    # Both branches converge on response
+    # Branches
     graph.add_edge("rag", "response")
     graph.add_edge("status", "field_selector")
-    graph.add_edge("field_selector","response")
+    graph.add_edge("field_selector", "response")
 
     # Exit
     graph.add_edge("response", END)
 
-    return graph.compile()
+    return graph.compile(
+        checkpointer=checkpointer,
+        interrupt_before=interrupt_before,
+    )
 
 
-app = build_graph()
+# Persistent SQLite checkpoint store.
+_checkpoint_connection = sqlite3.connect(
+    CHECKPOINT_DB,
+    check_same_thread=False,
+)
+
+_checkpointer = SqliteSaver(_checkpoint_connection)
+
+app = build_graph(checkpointer=_checkpointer)
