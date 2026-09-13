@@ -4,8 +4,8 @@ from agent.api.models import AskRequest, AskResponse
 from agent.conversation import run_turn
 
 
-def ask_agent(request: AskRequest) -> AskResponse:
-    state = run_turn(
+async def ask_agent(request: AskRequest) -> AskResponse:
+    state = await run_turn(
         query=request.query,
         conversation_id=request.conversation_id,
     )

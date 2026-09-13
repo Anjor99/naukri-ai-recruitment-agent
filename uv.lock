@@ -2168,6 +2168,7 @@ name = "naukri-ai-support-agent"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "aiosqlite" },
     { name = "chromadb" },
     { name = "detoxify" },
     { name = "fastapi" },
@@ -2184,6 +2185,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiosqlite", specifier = ">=0.22.1" },
     { name = "chromadb", specifier = ">=1.5.9" },
     { name = "detoxify", specifier = ">=0.5.2" },
     { name = "fastapi", specifier = ">=0.141.1" },

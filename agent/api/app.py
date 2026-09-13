@@ -256,10 +256,10 @@ def health():
     "/ask",
     response_model=AskResponse,
 )
-def ask(
+async def ask(
     request: AskRequest,
 ):
-    return ask_agent(request)
+    return await ask_agent(request)
 
 
 @app.post(

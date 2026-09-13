@@ -1,9 +1,10 @@
-import sqlite3
+import asyncio
 
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from agent.state import AgentState
+from agent.reliability import GraphTimeoutError
 from agent.nodes import (
     router_node,
     rag_node,
@@ -25,17 +26,20 @@ def route_decision(state: AgentState) -> str:
 def build_graph(checkpointer=None, interrupt_before=None):
     graph = StateGraph(AgentState)
 
-    # Register nodes
     graph.add_node("router", router_node)
-    graph.add_node("rag", rag_node)
-    graph.add_node("status", status_node)
-    graph.add_node("response", response_node)
-    graph.add_node("field_selector", field_selector_node)
 
-    # Entry point
+    graph.add_node(
+        "rag",
+        rag_node,
+        timeout=5.0,
+    )
+
+    graph.add_node("status", status_node)
+    graph.add_node("field_selector", field_selector_node)
+    graph.add_node("response", response_node)
+
     graph.add_edge(START, "router")
 
-    # Conditional branch out of router
     graph.add_conditional_edges(
         "router",
         route_decision,
@@ -45,12 +49,10 @@ def build_graph(checkpointer=None, interrupt_before=None):
         },
     )
 
-    # Branches
     graph.add_edge("rag", "response")
     graph.add_edge("status", "field_selector")
     graph.add_edge("field_selector", "response")
 
-    # Exit
     graph.add_edge("response", END)
 
     return graph.compile(
@@ -59,12 +61,26 @@ def build_graph(checkpointer=None, interrupt_before=None):
     )
 
 
-# Persistent SQLite checkpoint store.
-_checkpoint_connection = sqlite3.connect(
-    CHECKPOINT_DB,
-    check_same_thread=False,
-)
+async def invoke_with_timeout(
+    input_state: AgentState,
+    config: dict,
+    timeout: float = 30.0,
+):
+    """Run the complete graph with a global timeout."""
 
-_checkpointer = SqliteSaver(_checkpoint_connection)
+    try:
+        async with AsyncSqliteSaver.from_conn_string(CHECKPOINT_DB) as checkpointer:
+            graph_app = build_graph(checkpointer=checkpointer)
 
-app = build_graph(checkpointer=_checkpointer)
+            return await asyncio.wait_for(
+                graph_app.ainvoke(
+                    input_state,
+                    config=config,
+                ),
+                timeout=timeout,
+            )
+
+    except asyncio.TimeoutError as exc:
+        raise GraphTimeoutError(
+            f"Graph exceeded global timeout of {timeout:.2f} seconds."
+        ) from exc
