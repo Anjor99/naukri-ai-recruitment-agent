@@ -3,10 +3,13 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import Response
+from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 from agent.api.document import add_document
 from agent.api.ask import ask_agent
@@ -20,6 +23,20 @@ from agent.api.models import (
 
 
 app = FastAPI()
+
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+FRONTEND_DIR = BASE_DIR / "frontend"
+
+app.mount(
+    "/static",
+    StaticFiles(directory=FRONTEND_DIR / "static"),
+    name="static",
+)
+
+templates = Jinja2Templates(
+    directory=FRONTEND_DIR / "templates",
+)
 
 
 def _new_conversation_id() -> str:
@@ -246,7 +263,14 @@ async def request_logging_middleware(
 
         raise
 
-
+@app.get("/", response_class=HTMLResponse)
+async def frontend(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={},
+    )
+    
 @app.get("/health")
 def health():
     return {"status": "ok"}

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Naukri AI Support Agent</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', path='css/style.css') }}"
+    >
+</head>
+
+<body>
+
+<div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-logo">N</div>
+
+            <div>
+                <h1>Naukri</h1>
+                <span>AI Support Agent</span>
+            </div>
+        </div>
+
+        <button
+            id="new-chat-btn"
+            class="new-chat-btn"
+        >
+            <span>＋</span>
+            New conversation
+        </button>
+
+        <div class="sidebar-section">
+
+            <div class="sidebar-title">
+                QUICK QUESTIONS
+            </div>
+
+            <button
+                class="suggestion"
+                data-query="What is the notice period policy?"
+            >
+                <span>📋</span>
+                Notice period policy
+            </button>
+
+            <button
+                class="suggestion"
+                data-query="What is the interview scheduling process?"
+            >
+                <span>📅</span>
+                Interview scheduling
+            </button>
+
+            <button
+                class="suggestion"
+                data-query="What are the remote work eligibility rules?"
+            >
+                <span>🏠</span>
+                Remote work eligibility
+            </button>
+
+            <button
+                class="suggestion"
+                data-query="What is the referral bonus policy?"
+            >
+                <span>🎁</span>
+                Referral bonus
+            </button>
+
+        </div>
+
+        <div class="sidebar-bottom">
+
+            <div class="system-status">
+                <span class="status-dot"></span>
+
+                <div>
+                    <strong>Agent Online</strong>
+                    <small>FastAPI + LangGraph</small>
+                </div>
+            </div>
+
+            <a
+                href="/docs"
+                target="_blank"
+                class="api-link"
+            >
+                API Documentation ↗
+            </a>
+
+        </div>
+
+    </aside>
+
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- HEADER -->
+        <header class="topbar">
+
+            <div class="mobile-brand">
+                <div class="brand-logo">N</div>
+                <strong>Naukri AI</strong>
+            </div>
+
+            <div class="topbar-info">
+
+                <div class="online-indicator">
+                    <span></span>
+                    Online
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- CHAT AREA -->
+        <section
+            id="chat-container"
+            class="chat-container"
+        >
+
+            <!-- WELCOME SCREEN -->
+            <div
+                id="welcome-screen"
+                class="welcome-screen"
+            >
+
+                <div class="welcome-icon">
+                    ✦
+                </div>
+
+                <h2>
+                    How can I help you?
+                </h2>
+
+                <p>
+                    Ask about recruitment policies,
+                    hiring processes, or check an
+                    application status.
+                </p>
+
+                <div class="welcome-examples">
+
+                    <button
+                        class="example-card"
+                        data-query="What is the notice period policy?"
+                    >
+                        <span>📋</span>
+                        <strong>Notice period</strong>
+                        <small>
+                            Learn about notice requirements
+                        </small>
+                    </button>
+
+                    <button
+                        class="example-card"
+                        data-query="What is the interview scheduling process?"
+                    >
+                        <span>📅</span>
+                        <strong>Interview process</strong>
+                        <small>
+                            Understand interview scheduling
+                        </small>
+                    </button>
+
+                    <button
+                        class="example-card"
+                        data-query="Check the status of APP-0001"
+                    >
+                        <span>🔎</span>
+                        <strong>Application status</strong>
+                        <small>
+                            Check an application
+                        </small>
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- INPUT AREA -->
+        <footer class="input-area">
+
+            <div class="input-wrapper">
+
+                <textarea
+                    id="message-input"
+                    rows="1"
+                    placeholder="Ask about recruitment or your application..."
+                    autocomplete="off"
+                ></textarea>
+
+                <button
+                    id="send-btn"
+                    class="send-btn"
+                    aria-label="Send message"
+                >
+                    <span>➤</span>
+                </button>
+
+            </div>
+
+            <div class="input-footer">
+
+                <span>
+                    AI-generated responses may require verification.
+                </span>
+
+                <span id="conversation-label">
+                    New conversation
+                </span>
+
+            </div>
+
+        </footer>
+
+    </main>
+
+</div>
+
+
+<!-- JAVASCRIPT -->
+<script
+    src="{{ url_for('static', path='js/app.js') }}"
+></script>
+
+</body>
+</html>
