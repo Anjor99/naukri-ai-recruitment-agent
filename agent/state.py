@@ -7,6 +7,7 @@ class AgentState(TypedDict):
     query: str
     route: str
     rag_result: str
+    unknown_result: str
     status_result: dict
     response: str
     history: dict

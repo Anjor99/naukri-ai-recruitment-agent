@@ -44,7 +44,7 @@ class GroundedGenerator:
     def mock_llm_response(self, query: str, context: str) -> str:
         # This is a mock function to simulate an LLM response.
         # In a real implementation, you would call an actual LLM API here.
-        return f"Based on the context provided, the answer to your query is: {context}."
+        return f"{context}."
     
     def groq_llm_response(self, query: str, context: str) -> str:
         user_prompt = f"""

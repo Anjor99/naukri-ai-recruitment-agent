@@ -79,6 +79,12 @@ async def rag_node(state: AgentState) -> dict:
     return {
         "rag_result": result
     }
+    
+def unknown_node(state: AgentState) -> dict:
+    """Safe response for unknown intent"""
+    return {
+        "unknown_result": "Unable to classify User intent with confidence"
+    }
 
 
 def response_node(state: AgentState) -> dict:
@@ -91,10 +97,15 @@ def response_node(state: AgentState) -> dict:
                 state.get("requested_fields", ["status"]),
             )
         }
+    elif state["route"] == PossibleRoutes.UNKNOWN.value:
+        return {
+            "response": (
+                f"{state['unknown_result']}"
+            )
+        }
 
     return {
         "response": (
-            f"Following is related information for your query : "
             f"{state['rag_result']}"
         )
     }

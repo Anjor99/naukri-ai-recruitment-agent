@@ -11,6 +11,7 @@ from agent.nodes import (
     status_node,
     field_selector_node,
     response_node,
+    unknown_node
 )
 from agent.router import PossibleRoutes
 
@@ -37,6 +38,7 @@ def build_graph(checkpointer=None, interrupt_before=None):
     graph.add_node("status", status_node)
     graph.add_node("field_selector", field_selector_node)
     graph.add_node("response", response_node)
+    graph.add_node("unknown", unknown_node)
 
     graph.add_edge(START, "router")
 
@@ -46,12 +48,14 @@ def build_graph(checkpointer=None, interrupt_before=None):
         {
             PossibleRoutes.RAG.value: "rag",
             PossibleRoutes.STATUS.value: "status",
+            PossibleRoutes.UNKNOWN.value: "unknown",
         },
     )
 
     graph.add_edge("rag", "response")
     graph.add_edge("status", "field_selector")
     graph.add_edge("field_selector", "response")
+    graph.add_edge("unknown", "response")
 
     graph.add_edge("response", END)
 
