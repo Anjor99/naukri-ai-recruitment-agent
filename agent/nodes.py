@@ -1,7 +1,7 @@
 from agent.router import route_query, _RECORD_ID_PATTERN, PossibleRoutes
 from agent.tools import check_job_application_status
 from agent.state import AgentState
-from agent.field_selector import select_fields
+from agent.field_selector import _field_selector
 from agent.helpers import _format_status_response
 from rag.vector_store import VectorStore
 from rag.generator import GroundedGenerator
@@ -26,8 +26,6 @@ def router_node(state: AgentState) -> dict:
     }
     
 def status_node(state: AgentState) -> dict:
-    """Query application data using the current or remembered record ID."""
-
     match = _RECORD_ID_PATTERN.search(state["query"])
 
     if match:
@@ -39,28 +37,35 @@ def status_node(state: AgentState) -> dict:
         return {
             "status_result": {
                 "record_id": None,
-                "error": "No application record ID was provided or remembered."
+                "found": False,
+                "error": (
+                    "No application record ID was provided "
+                    "or remembered."
+                ),
             }
         }
 
-    record = check_job_application_status(record_id)
+    result = check_job_application_status(record_id)
 
     return {
-        "status_result": record,
+        "status_result": result,
         "record_id": record_id,
     }
     
 def field_selector_node(state: AgentState) -> dict:
-    """Determine which application fields the user requested."""
-
-    fields = select_fields(state["query"])
-
-    # Generic status/application query
-    if not fields:
-        fields = ["status"]
+    result = _field_selector.classify(
+        state["query"]
+    )
 
     return {
-        "requested_fields": fields
+        "requested_fields": [
+            match.field.value
+            for match in result.requested_fields
+        ],
+        "unsupported_fields": [
+            item.clause
+            for item in result.unsupported_fields
+        ],
     }
     
     
@@ -95,6 +100,7 @@ def response_node(state: AgentState) -> dict:
             "response": _format_status_response(
                 state["status_result"],
                 state.get("requested_fields", ["status"]),
+                state.get("unsupported_fields", []),
             )
         }
     elif state["route"] == PossibleRoutes.UNKNOWN.value:

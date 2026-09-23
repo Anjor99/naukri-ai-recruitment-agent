@@ -14,3 +14,4 @@ class AgentState(TypedDict):
     conversation_id: str
     record_id: str
     requested_fields: list[str]
+    unsupported_fields: list[str]

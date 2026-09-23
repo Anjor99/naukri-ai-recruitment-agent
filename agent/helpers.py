@@ -1,51 +1,82 @@
 def _format_status_response(
     status_result: dict,
     requested_fields: list[str],
+    unsupported_fields: list[str] | None = None,
 ) -> str:
-    """Format only the application fields requested by the user."""
 
-    record_id = status_result.get("record_id")
+    unsupported_fields = unsupported_fields or []
 
-    if not record_id:
+    if not status_result.get("found", True):
+        record_id = status_result.get("record_id")
+
         return (
-            "I couldn't find any application matching that record ID. "
-            "Could you double-check the ID and try again?"
+            f"I couldn't find an application with record ID "
+            f"**{record_id}**.\n\n"
+            "Please check the record ID and try again."
         )
 
-    lines = []
+    record_id = status_result["record_id"]
 
-    if "status" in requested_fields:
-        status = status_result.get("status")
-        lines.append(f"Current status: **{status}**")
+    lines = [
+        f"Application **{record_id}**:"
+    ]
 
-    if "expected_salary_inr" in requested_fields:
-        salary = status_result.get("expected_salary_inr")
-        if salary is not None:
-            lines.append(f"Expected salary: **₹{salary:,}**")
+    field_labels = {
+        "status": "Current status",
+        "expected_salary_inr": "Expected salary",
+        "days_since_created": "Days since created",
+        "flagged_priority_review": "Priority review",
+        "escalation": "Escalation recommended",
+    }
 
-    if "days_since_created" in requested_fields:
-        days = status_result.get("days_since_created")
-        if days is not None:
-            lines.append(f"Application was created **{days} days ago**.")
+    for field in requested_fields:
 
-    if "flagged_priority_review" in requested_fields:
-        flagged = status_result.get("flagged_priority_review")
-        if flagged is not None:
-            answer = "Yes" if flagged else "No"
+        if field == "status":
             lines.append(
-                f"Flagged for priority review: **{answer}**"
+                f"Current status: **{status_result['status']}**"
             )
 
-    if "recommend_escalation" in requested_fields:
-        recommend = status_result.get("recommend_escalation")
-
-        if recommend:
+        elif field == "expected_salary_inr":
             lines.append(
-                "Escalation is **recommended** for this application."
-            )
-        else:
-            lines.append(
-                "Escalation is **not currently recommended** for this application."
+                f"Expected salary: "
+                f"**₹{status_result['expected_salary_inr']:,}**"
             )
 
-    return f"Application **{record_id}**:\n" + "\n".join(lines)
+        elif field == "days_since_created":
+            lines.append(
+                f"Application was created "
+                f"**{status_result['days_since_created']} days ago**."
+            )
+
+        elif field == "flagged_priority_review":
+            value = (
+                "Yes"
+                if status_result["flagged_priority_review"]
+                else "No"
+            )
+
+            lines.append(
+                f"Flagged for priority review: **{value}**"
+            )
+
+        elif field == "escalation":
+            value = (
+                "Yes"
+                if status_result["recommend_escalation"]
+                else "No"
+            )
+
+            lines.append(
+                f"Escalation recommended: **{value}**"
+            )
+
+    if unsupported_fields:
+        lines.append("")
+
+        for unsupported in unsupported_fields:
+            lines.append(
+                f"I don't have information for "
+                f"**{unsupported}** in the application data."
+            )
+
+    return "\n".join(lines)

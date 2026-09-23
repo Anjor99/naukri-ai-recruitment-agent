@@ -49,6 +49,16 @@ STATUS_EXAMPLES = (
     "Tell me everything about my application.",
     "What is the applicant name?",
     "What is the applicant's information?",
+    "Give me all the details",
+    "Give me all the details of my application",
+    "Give me all the details for my application",
+    "Give me all the application details",
+    "Give me all the application details for my application",
+    "Show me all the details",
+    "Show me all my application details",
+    "Tell me everything about my application",
+    "Give me everything about my application",
+    "Show me everything about my application",
 )
 
 
