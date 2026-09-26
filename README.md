@@ -2,7 +2,7 @@
 
 An AI-powered recruitment and HR support agent built for the **Naukri.com — Recruitment & HR** capstone track.
 
-The system combines a deterministic job-application dataset, local retrieval-augmented generation (RAG), a LangGraph-orchestrated agent, tool use, conversational memory, structured output validation, input/output guardrails, and a FastAPI + MCP deployment layer with production-grade reliability controls (timeouts, retries, checkpointing).
+The system combines a deterministic job-application dataset, local retrieval-augmented generation (RAG), a LangGraph-orchestrated agent, tool use, conversational memory, structured output validation, input/output guardrails, a FastAPI + MCP deployment layer with production-grade reliability controls (timeouts, retries, checkpointing), and a browser-based chat + live agent-graph UI.
 
 ---
 
@@ -11,6 +11,7 @@ The system combines a deterministic job-application dataset, local retrieval-aug
 - [Features](#features)
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
+- [Web UI](#web-ui)
 - [Setup](#setup)
 - [Running the Application](#running-the-application)
 - [Testing](#testing)
@@ -35,6 +36,7 @@ The system combines a deterministic job-application dataset, local retrieval-aug
 | Safety | Input guardrails (prompt injection, toxicity, PII masking) and output guardrails (toxicity, groundedness) |
 | Output | Schema-validated structured responses |
 | Deployment | FastAPI service and MCP server |
+| Web UI | Responsive chat interface with a live, branch-aware LangGraph topology view |
 | Observability | PII-safe structured JSONL logging |
 | Reliability | Node-level timeouts, global graph timeout, exponential-backoff retries |
 
@@ -75,6 +77,21 @@ naukri-ai-support-agent/
 │       ├── models.py
 │       └── logging_utils.py
 │
+├── static/                  # Browser UI served by FastAPI (chat + agent graph)
+│   ├── index.html
+│   ├── css/
+│   │   ├── main.css         # Shell layout, topbar, view-switcher tabs, responsive rules
+│   │   ├── sidebar.css       # Knowledge-base / application sidebar (off-canvas on mobile)
+│   │   ├── chat.css          # Chat panel, message bubbles, input area
+│   │   └── graph.css         # Agent graph panel: layered nodes + SVG edge overlay
+│   └── js/
+│       ├── api.js            # Thin fetch wrapper for /ask, /health, /knowledge-base, /application, /graph
+│       ├── app.js             # Bootstraps the page: chat, sidebar drawer, view tabs, health check
+│       ├── application.js      # Application-ID lookup panel in the sidebar
+│       ├── chat.js             # Message rendering, conversation state, /ask requests
+│       ├── graph.js            # Renders /graph as a layered DAG with SVG edges (not a flat list)
+│       └── knowledge-base.js    # Populates the sidebar's knowledge-base list from /knowledge-base
+│
 ├── rag/
 │   ├── loader.py
 │   ├── chunking.py
@@ -102,6 +119,12 @@ naukri-ai-support-agent/
 ## Architecture
 
 ```text
+                    ┌────────────────────┐
+                    │  Web UI (browser)   │
+                    │  Chat + Agent Graph  │
+                    └─────────┬──────────┘
+                              │
+                              v
                     ┌────────────────────┐
                     │      User / API     │
                     └─────────┬──────────┘
@@ -143,7 +166,20 @@ naukri-ai-support-agent/
                     └────────────────────┘
 ```
 
-Supporting infrastructure: conversation memory (`memory.json`), SQLite-backed LangGraph checkpointing, an MCP server exposing the status tool, and PII-safe structured logging.
+Supporting infrastructure: conversation memory (`memory.json`), SQLite-backed LangGraph checkpointing, an MCP server exposing the status tool, PII-safe structured logging, and the `static/` browser UI that talks to the FastAPI endpoints above.
+
+---
+
+## Web UI
+
+The FastAPI service serves a small single-page frontend (`static/`) alongside the API, giving two views of the same running agent:
+
+- **Chat** — the conversational interface: send a query, see the agent's response, the route it took, and (when relevant) the looked-up application record, all against the live `/ask` endpoint.
+- **Agent Graph** — a live rendering of the `/graph` endpoint's actual LangGraph topology. Nodes are grouped into rows by their distance from the start node, so branching (e.g. the router fanning out to `rag` / `status` / `unknown`) and merging (e.g. everything converging back into `response`) are drawn as a real DAG with curved SVG edges — not flattened into a single sequential column. Conditional edges (the router's branches) are shown dashed and accent-colored.
+
+Only one of these two panels is shown at a time, switched via the **Chat / Agent Graph** tabs above the workspace, so the layout stays uncluttered and scroll-free instead of squeezing both into a split-screen.
+
+The sidebar (knowledge-base list and application lookup) is always available. On narrower screens it collapses into an off-canvas drawer, opened with the topbar's menu button, so the chat or graph view still gets the full width of the screen instead of being squeezed by a fixed-width sidebar.
 
 ---
 
@@ -237,7 +273,7 @@ Starts:
 - FastAPI → `http://127.0.0.1:8000`
 - MCP → `http://127.0.0.1:8001/mcp`
 
-Run components individually:
+Open `http://127.0.0.1:8000` in a browser for the chat + agent-graph web UI. Run components individually:
 
 ```bash
 python run.py api    # FastAPI only
@@ -250,7 +286,7 @@ Stop with `Ctrl + C`.
 
 Swagger docs: `http://127.0.0.1:8000/docs`
 
-Endpoints: `GET /health`, `POST /ask`, `POST /add-document`
+Endpoints: `GET /health`, `POST /ask`, `POST /add-document`, `GET /knowledge-base`, `GET /application/{record_id}`, `GET /graph`
 
 ```json
 {
@@ -393,6 +429,10 @@ python -m tests.test_reliability
 
 **Reliability controls** — A 5-second node-level timeout on the RAG node, a 30-second global graph timeout, and a retry policy (max 3 attempts, 0.1s initial interval, 2.0x backoff, 0.4s max interval, jitter enabled) protect against slow or transient failures.
 
+**Graph visualization mirrors the real topology** — The `/graph` endpoint's nodes and edges are rendered as a layered DAG (grouped by distance from the start node) rather than a single sequential list, so the UI's picture of the agent matches how LangGraph actually routes and merges, including conditional branches.
+
+**Single-panel, tab-based workspace** — Chat and Agent Graph are shown one at a time via tabs rather than a permanent split view, and the sidebar becomes an off-canvas drawer on narrow screens, so the UI stays usable and scroll-free on both desktop and mobile.
+
 ---
 
 ## Evaluation Artifacts
@@ -438,6 +478,7 @@ memory.json
 | 14 — MCP Integration | Complete |
 | 15 — SQLite Checkpointing | Complete |
 | 16 — Reliability | Complete |
+| 17 — Web UI (chat + live agent graph) | Complete |
 
 ---
 
