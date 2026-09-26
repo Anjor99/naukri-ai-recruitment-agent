@@ -1,793 +1,431 @@
-"use strict";
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
+        initializeFrontend();
 
-/* =========================================
-   STATE
-========================================= */
-
-let conversationId =
-    localStorage.getItem("naukri_conversation_id");
-
-if (!conversationId) {
-    conversationId = crypto.randomUUID();
-
-    localStorage.setItem(
-        "naukri_conversation_id",
-        conversationId
-    );
-}
-
-
-/* =========================================
-   DOM
-========================================= */
-
-const chatContainer =
-    document.getElementById("chat-container");
-
-const welcomeScreen =
-    document.getElementById("welcome-screen");
-
-const messageInput =
-    document.getElementById("message-input");
-
-const sendButton =
-    document.getElementById("send-btn");
-
-const newChatButton =
-    document.getElementById("new-chat-btn");
-
-const conversationLabel =
-    document.getElementById("conversation-label");
-
-
-/* =========================================
-   INITIALIZATION
-========================================= */
-
-conversationLabel.textContent =
-    "Conversation active";
-
-
-/* =========================================
-   SEND MESSAGE
-========================================= */
-
-async function sendMessage(customMessage = null) {
-
-    const message =
-        customMessage !== null
-            ? customMessage.trim()
-            : messageInput.value.trim();
-
-    if (!message) {
-        return;
     }
-
-    if (customMessage === null) {
-        messageInput.value = "";
-        autoResizeTextarea();
-    }
-
-    hideWelcomeScreen();
-
-    addUserMessage(message);
-
-    setLoading(true);
-
-    const typingElement = addTypingIndicator();
-
-    try {
-
-        const response = await fetch(
-            "/ask",
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json"
-                },
-
-                body: JSON.stringify({
-                    query: message,
-                    conversation_id: conversationId
-                })
-            }
-        );
-
-
-        removeTypingIndicator(typingElement);
-
-
-        if (!response.ok) {
-
-            let errorMessage =
-                `Request failed (${response.status}).`;
-
-            try {
-                const errorData =
-                    await response.json();
-
-                if (errorData.detail) {
-                    errorMessage =
-                        errorData.detail;
-                }
-            } catch (_) {
-                // Keep default error message.
-            }
-
-            addErrorMessage(errorMessage);
-
-            return;
-        }
-
-
-        const data =
-            await response.json();
-
-
-        /*
-         * The backend may return a conversation ID.
-         * If it does, keep using it.
-         */
-
-        if (data.conversation_id) {
-
-            conversationId =
-                data.conversation_id;
-
-            localStorage.setItem(
-                "naukri_conversation_id",
-                conversationId
-            );
-        }
-
-
-        renderAgentResponse(data);
-
-
-    } catch (error) {
-
-        removeTypingIndicator(typingElement);
-
-        console.error(
-            "Request error:",
-            error
-        );
-
-        addErrorMessage(
-            "Unable to connect to the AI agent. Please try again."
-        );
-
-    } finally {
-
-        setLoading(false);
-    }
-}
-
-
-/* =========================================
-   RENDER AGENT RESPONSE
-========================================= */
-
-function renderAgentResponse(data) {
-
-    /*
-     * Your API's main answer.
-     */
-
-    const responseText =
-        data.response ||
-        data.message ||
-        "The agent returned an empty response.";
-
-    addAssistantMessage(
-        responseText
-    );
-
-
-    /*
-     * If your API exposes an application
-     * record ID, render a status card.
-     */
-
-    if (
-        data.record_id &&
-        (
-            data.status ||
-            data.expected_salary_inr
-        )
-    ) {
-
-        addStatusCard(data);
-    }
-
-
-    /*
-     * If your API eventually exposes
-     * retrieval metadata, the UI can show it.
-     *
-     * These fields are optional and therefore
-     * won't break the frontend if absent.
-     */
-
-    if (
-        data.source ||
-        data.similarity ||
-        data.top_similarity
-    ) {
-
-        addGroundingInfo(data);
-    }
-}
-
-
-/* =========================================
-   USER MESSAGE
-========================================= */
-
-function addUserMessage(message) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row user";
-
-
-    const bubble =
-        document.createElement("div");
-
-    bubble.className =
-        "message user";
-
-    bubble.textContent =
-        message;
-
-
-    row.appendChild(bubble);
-
-    chatContainer.appendChild(row);
-
-    scrollToBottom();
-}
-
-
-/* =========================================
-   ASSISTANT MESSAGE
-========================================= */
-
-function addAssistantMessage(message) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row assistant";
-
-
-    const bubble =
-        document.createElement("div");
-
-    bubble.className =
-        "message assistant";
-
-    /*
-     * textContent is intentional.
-     *
-     * We don't insert backend responses as HTML.
-     * This prevents the frontend from rendering
-     * arbitrary HTML returned by the API.
-     */
-
-    bubble.textContent =
-        message;
-
-
-    row.appendChild(bubble);
-
-    chatContainer.appendChild(row);
-
-    scrollToBottom();
-}
-
-
-/* =========================================
-   STATUS CARD
-========================================= */
-
-function addStatusCard(data) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row assistant";
-
-
-    const card =
-        document.createElement("div");
-
-    card.className =
-        "status-card";
-
-
-    const header =
-        document.createElement("div");
-
-    header.className =
-        "status-card-header";
-
-    header.textContent =
-        `Application ${data.record_id}`;
-
-
-    const body =
-        document.createElement("div");
-
-    body.className =
-        "status-card-body";
-
-
-    if (data.status) {
-
-        body.appendChild(
-            createStatusField(
-                "Status",
-                data.status
-            )
-        );
-    }
-
-
-    if (
-        data.expected_salary_inr !== undefined &&
-        data.expected_salary_inr !== null
-    ) {
-
-        body.appendChild(
-            createStatusField(
-                "Expected Salary",
-                formatCurrency(
-                    data.expected_salary_inr
-                )
-            )
-        );
-    }
-
-
-    if (data.days_since_created !== undefined) {
-
-        body.appendChild(
-            createStatusField(
-                "Application Age",
-                `${data.days_since_created} days`
-            )
-        );
-    }
-
-
-    card.appendChild(header);
-    card.appendChild(body);
-
-    row.appendChild(card);
-
-    chatContainer.appendChild(row);
-
-    scrollToBottom();
-}
-
-
-function createStatusField(
-    label,
-    value
-) {
-
-    const field =
-        document.createElement("div");
-
-    field.className =
-        "status-field";
-
-
-    const labelElement =
-        document.createElement("span");
-
-    labelElement.textContent =
-        label;
-
-
-    const valueElement =
-        document.createElement("span");
-
-    valueElement.textContent =
-        value;
-
-
-    field.appendChild(labelElement);
-    field.appendChild(valueElement);
-
-    return field;
-}
-
-
-/* =========================================
-   GROUNDING INFO
-========================================= */
-
-function addGroundingInfo(data) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row assistant";
-
-
-    const box =
-        document.createElement("div");
-
-    box.className =
-        "status-card";
-
-
-    const header =
-        document.createElement("div");
-
-    header.className =
-        "status-card-header";
-
-    header.textContent =
-        "✓ Retrieval information";
-
-
-    const body =
-        document.createElement("div");
-
-    body.className =
-        "status-card-body";
-
-
-    if (data.source) {
-
-        body.appendChild(
-            createStatusField(
-                "Source",
-                data.source
-            )
-        );
-    }
-
-
-    const similarity =
-        data.similarity ??
-        data.top_similarity;
-
-
-    if (similarity !== undefined) {
-
-        body.appendChild(
-            createStatusField(
-                "Similarity",
-                Number(similarity).toFixed(3)
-            )
-        );
-    }
-
-
-    box.appendChild(header);
-    box.appendChild(body);
-
-    row.appendChild(box);
-
-    chatContainer.appendChild(row);
-
-    scrollToBottom();
-}
-
-
-/* =========================================
-   TYPING INDICATOR
-========================================= */
-
-function addTypingIndicator() {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row assistant";
-
-
-    const indicator =
-        document.createElement("div");
-
-    indicator.className =
-        "typing-indicator";
-
-
-    for (let i = 0; i < 3; i++) {
-
-        const dot =
-            document.createElement("span");
-
-        indicator.appendChild(dot);
-    }
-
-
-    row.appendChild(indicator);
-
-    chatContainer.appendChild(row);
-
-    scrollToBottom();
-
-    return row;
-}
-
-
-function removeTypingIndicator(element) {
-
-    if (element && element.parentNode) {
-
-        element.parentNode.removeChild(
-            element
-        );
-    }
-}
-
-
-/* =========================================
-   ERROR
-========================================= */
-
-function addErrorMessage(message) {
-
-    const row =
-        document.createElement("div");
-
-    row.className =
-        "message-row assistant";
-
-
-    const error =
-        document.createElement("div");
-
-    error.className =
-        "error-message";
-
-    error.textContent =
-        message;
-
-
-    row.appendChild(error);
-
-    chatContainer.appendChild(row);
-
-    scrollToBottom();
-}
-
-
-/* =========================================
-   NEW CHAT
-========================================= */
-
-function startNewConversation() {
-
-    conversationId =
-        crypto.randomUUID();
-
-    localStorage.setItem(
-        "naukri_conversation_id",
-        conversationId
-    );
-
-
-    /*
-     * Clear UI.
-     */
-
-    chatContainer.innerHTML = "";
-
-    chatContainer.appendChild(
-        createWelcomeScreen()
-    );
-
-
-    conversationLabel.textContent =
-        "New conversation";
-
-    messageInput.focus();
-}
-
-
-function createWelcomeScreen() {
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "welcome-screen";
-
-
-    wrapper.innerHTML = `
-        <div class="welcome-icon">✦</div>
-
-        <h2>How can I help you?</h2>
-
-        <p>
-            Ask about recruitment policies,
-            hiring processes, or check an
-            application status.
-        </p>
-    `;
-
-    return wrapper;
-}
-
-
-/* =========================================
-   WELCOME
-========================================= */
-
-function hideWelcomeScreen() {
-
-    if (welcomeScreen) {
-
-        welcomeScreen.remove();
-    }
-}
-
-
-/* =========================================
-   LOADING
-========================================= */
-
-function setLoading(isLoading) {
-
-    sendButton.disabled =
-        isLoading;
-
-    messageInput.disabled =
-        isLoading;
-}
-
-
-/* =========================================
-   TEXTAREA
-========================================= */
-
-function autoResizeTextarea() {
-
-    messageInput.style.height =
-        "auto";
-
-    messageInput.style.height =
-        Math.min(
-            messageInput.scrollHeight,
-            120
-        ) + "px";
-}
-
-
-/* =========================================
-   HELPERS
-========================================= */
-
-function scrollToBottom() {
-
-    requestAnimationFrame(() => {
-
-        chatContainer.scrollTo({
-            top: chatContainer.scrollHeight,
-            behavior: "smooth"
-        });
-
-    });
-}
-
-
-function formatCurrency(value) {
-
-    const number =
-        Number(value);
-
-    if (Number.isNaN(number)) {
-        return String(value);
-    }
-
-    return new Intl.NumberFormat(
-        "en-IN",
-        {
-            style: "currency",
-            currency: "INR",
-            maximumFractionDigits: 0
-        }
-    ).format(number);
-}
-
-
-/* =========================================
-   EVENT LISTENERS
-========================================= */
-
-sendButton.addEventListener(
-    "click",
-    () => sendMessage()
 );
 
 
-messageInput.addEventListener(
-    "keydown",
-    (event) => {
+async function initializeFrontend() {
 
-        /*
-         * Enter = send
-         *
-         * Shift + Enter = new line
-         */
+    setupChat();
 
-        if (
-            event.key === "Enter" &&
-            !event.shiftKey
-        ) {
+    setupSuggestions();
+
+    setupApplicationSearch();
+
+    setupNewConversation();
+
+    setupGraphRefresh();
+
+    setupSidebarToggle();
+
+    setupViewTabs();
+
+    await Promise.all([
+        loadKnowledgeBase(),
+        loadGraph(),
+        checkHealth()
+    ]);
+
+}
+
+
+function setupChat() {
+
+    const form =
+        document.getElementById(
+            "chat-form"
+        );
+
+    const input =
+        document.getElementById(
+            "chat-input"
+        );
+
+
+    form.addEventListener(
+        "submit",
+        event => {
 
             event.preventDefault();
 
-            sendMessage();
+            const query =
+                input.value.trim();
+
+            if (!query) {
+                return;
+            }
+
+            input.value = "";
+
+            autoResizeTextarea(
+                input
+            );
+
+            sendMessage(
+                query
+            );
         }
+    );
+
+
+    input.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                form.requestSubmit();
+            }
+        }
+    );
+
+
+    input.addEventListener(
+        "input",
+        () => {
+
+            autoResizeTextarea(
+                input
+            );
+        }
+    );
+}
+
+
+function setupSuggestions() {
+
+    document
+        .querySelectorAll(
+            ".suggestion-button"
+        )
+        .forEach(
+            button => {
+
+                button.addEventListener(
+                    "click",
+                    () => {
+
+                        sendMessage(
+                            button.dataset.query
+                        );
+                    }
+                );
+            }
+        );
+}
+
+
+function setupApplicationSearch() {
+
+    document
+        .getElementById(
+            "application-search-btn"
+        )
+        .addEventListener(
+            "click",
+            searchApplication
+        );
+
+
+    document
+        .getElementById(
+            "application-id-input"
+        )
+        .addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter"
+                ) {
+
+                    event.preventDefault();
+
+                    searchApplication();
+                }
+            }
+        );
+}
+
+
+function setupNewConversation() {
+
+    document
+        .getElementById(
+            "new-chat-btn"
+        )
+        .addEventListener(
+            "click",
+            clearChat
+        );
+}
+
+
+function setupSidebarToggle() {
+
+    const toggleButton =
+        document.getElementById(
+            "sidebar-toggle-btn"
+        );
+
+    const sidebar =
+        document.getElementById(
+            "app-sidebar"
+        );
+
+    const backdrop =
+        document.getElementById(
+            "sidebar-backdrop"
+        );
+
+    if (
+        !toggleButton ||
+        !sidebar ||
+        !backdrop
+    ) {
+        return;
     }
-);
+
+    const closeSidebar = () => {
+
+        sidebar.classList.remove(
+            "open"
+        );
+
+        backdrop.classList.remove(
+            "visible"
+        );
+
+        toggleButton.setAttribute(
+            "aria-expanded",
+            "false"
+        );
+    };
+
+    const toggleSidebar = () => {
+
+        const isOpen =
+            sidebar.classList.toggle(
+                "open"
+            );
+
+        backdrop.classList.toggle(
+            "visible",
+            isOpen
+        );
+
+        toggleButton.setAttribute(
+            "aria-expanded",
+            String(isOpen)
+        );
+    };
+
+    toggleButton.addEventListener(
+        "click",
+        toggleSidebar
+    );
+
+    backdrop.addEventListener(
+        "click",
+        closeSidebar
+    );
+
+    // Close the drawer automatically once the user picks
+    // something inside it, so it doesn't sit open over the chat.
+    sidebar.addEventListener(
+        "click",
+        event => {
+
+            if (
+                event.target.closest(
+                    ".kb-button"
+                ) ||
+                event.target.closest(
+                    "#application-search-btn"
+                )
+            ) {
+
+                closeSidebar();
+            }
+        }
+    );
+}
 
 
-messageInput.addEventListener(
-    "input",
-    autoResizeTextarea
-);
+function setupViewTabs() {
 
+    const tabs =
+        document.querySelectorAll(
+            ".view-tab"
+        );
 
-newChatButton.addEventListener(
-    "click",
-    startNewConversation
-);
+    const panels = {
+        chat:
+            document.getElementById(
+                "chat-view-panel"
+            ),
+        graph:
+            document.getElementById(
+                "graph-view-panel"
+            )
+    };
 
+    if (
+        !tabs.length ||
+        !panels.chat ||
+        !panels.graph
+    ) {
+        return;
+    }
 
-/*
- * Sidebar quick questions.
- */
+    const activateView = view => {
 
-document
-    .querySelectorAll(".suggestion")
-    .forEach(button => {
+        tabs.forEach(
+            tab => {
 
-        button.addEventListener(
-            "click",
-            () => {
+                const isActive =
+                    tab.dataset.view === view;
 
-                sendMessage(
-                    button.dataset.query
+                tab.classList.toggle(
+                    "active",
+                    isActive
                 );
 
-            }
-        );
-    });
-
-
-/*
- * Welcome screen example cards.
- */
-
-document
-    .querySelectorAll(".example-card")
-    .forEach(button => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                sendMessage(
-                    button.dataset.query
+                tab.setAttribute(
+                    "aria-selected",
+                    String(isActive)
                 );
-
             }
         );
-    });
+
+        Object.entries(panels).forEach(
+            ([key, panel]) => {
+
+                panel.classList.toggle(
+                    "hidden",
+                    key !== view
+                );
+            }
+        );
+
+        // The graph panel is laid out while hidden
+        // (display: none reports zero size), so its
+        // connecting lines need to be redrawn once it's
+        // actually visible and has real dimensions.
+        if (
+            view === "graph" &&
+            typeof refreshGraphLayout ===
+            "function"
+        ) {
+
+            refreshGraphLayout();
+        }
+    };
+
+    tabs.forEach(
+        tab => {
+
+            tab.addEventListener(
+                "click",
+                () => {
+
+                    activateView(
+                        tab.dataset.view
+                    );
+                }
+            );
+        }
+    );
+
+
+    activateView("chat");
+}
+
+
+function setupGraphRefresh() {
+
+    document
+        .getElementById(
+            "refresh-graph-btn"
+        )
+        .addEventListener(
+            "click",
+            loadGraph
+        );
+}
+
+
+async function checkHealth() {
+
+    const indicator =
+        document.getElementById(
+            "status-indicator"
+        );
+
+    const text =
+        document.getElementById(
+            "system-status-text"
+        );
+
+    try {
+
+        const result =
+            await API.health();
+
+        if (
+            result.data?.status ===
+            "ok"
+        ) {
+
+            indicator.classList.add(
+                "online"
+            );
+
+            text.textContent =
+                "System operational";
+
+        } else {
+
+            throw new Error(
+                "Unexpected health response"
+            );
+        }
+
+    } catch {
+
+        indicator.classList.remove(
+            "online"
+        );
+
+        indicator.classList.add(
+            "offline"
+        );
+
+        text.textContent =
+            "System unavailable";
+    }
+}
+
+
+function autoResizeTextarea(
+    textarea
+) {
+
+    textarea.style.height =
+        "auto";
+
+    textarea.style.height =
+        `${Math.min(
+            textarea.scrollHeight,
+            160
+        )}px`;
+}

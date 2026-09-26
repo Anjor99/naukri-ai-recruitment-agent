@@ -1,0 +1,356 @@
+.sidebar {
+    display: flex;
+    flex-direction: column;
+
+    width: 255px;
+    flex-shrink: 0;
+
+    border-right:
+        1px solid var(--border);
+
+    background: #0d131a;
+
+    overflow-y: auto;
+}
+
+
+.brand {
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    padding: 19px 17px;
+
+    border-bottom:
+        1px solid var(--border);
+}
+
+
+.brand-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 34px;
+    height: 34px;
+
+    border-radius: 9px;
+
+    background: rgba(94, 234, 212, 0.1);
+
+    border:
+        1px solid rgba(94, 234, 212, 0.25);
+
+    color: var(--accent);
+
+    font-weight: 750;
+}
+
+
+.brand-title {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+
+.brand-subtitle {
+    margin-top: 2px;
+
+    color: var(--text-muted);
+
+    font-size: 10px;
+}
+
+
+.sidebar-section {
+    padding: 18px 12px 8px;
+}
+
+
+.section-heading {
+    padding: 0 5px 9px;
+
+    color: var(--text-muted);
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.08em;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+
+.knowledge-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 2px;
+}
+
+
+.kb-button {
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+
+    gap: 8px;
+
+    padding: 8px 8px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: var(--text-secondary);
+
+    text-align: left;
+
+    font-size: 11px;
+}
+
+
+.kb-button:hover {
+    background: var(--surface-2);
+
+    color: var(--text);
+}
+
+
+.kb-icon {
+    width: 17px;
+
+    color: var(--text-muted);
+
+    text-align: center;
+}
+
+
+.kb-name {
+    overflow: hidden;
+
+    white-space: nowrap;
+
+    text-overflow: ellipsis;
+}
+
+
+.application-section {
+    margin-top: 8px;
+
+    border-top:
+        1px solid var(--border);
+}
+
+
+.application-search {
+    display: flex;
+
+    gap: 5px;
+}
+
+
+.application-search input {
+    min-width: 0;
+    flex: 1;
+
+    padding: 8px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 7px;
+
+    outline: none;
+
+    background: var(--surface);
+
+    color: var(--text);
+
+    font-size: 11px;
+}
+
+
+.application-search input:focus {
+    border-color: var(--accent-dark);
+}
+
+
+.application-search button {
+    padding: 0 10px;
+
+    border: 0;
+    border-radius: 7px;
+
+    background: var(--accent);
+
+    color: #09211e;
+
+    font-size: 10px;
+    font-weight: 700;
+}
+
+
+.application-result {
+    margin-top: 10px;
+}
+
+
+.application-card {
+    padding: 10px;
+
+    border:
+        1px solid var(--border);
+
+    border-radius: 8px;
+
+    background: var(--surface);
+}
+
+
+.application-id {
+    margin-bottom: 10px;
+
+    color: var(--accent);
+
+    font-family:
+        "SFMono-Regular",
+        Consolas,
+        monospace;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+
+.application-field {
+    display: flex;
+    justify-content: space-between;
+
+    gap: 8px;
+
+    padding: 6px 0;
+
+    border-bottom:
+        1px solid rgba(37, 49, 61, 0.55);
+
+    font-size: 10px;
+}
+
+
+.application-field:last-of-type {
+    border-bottom: 0;
+}
+
+
+.application-field span {
+    color: var(--text-muted);
+}
+
+
+.application-field strong {
+    color: var(--text-secondary);
+
+    text-align: right;
+}
+
+
+.escalation-badge {
+    margin-top: 9px;
+
+    padding: 6px;
+
+    border-radius: 6px;
+
+    text-align: center;
+
+    font-size: 9px;
+    font-weight: 700;
+}
+
+
+.escalation-yes {
+    background: rgba(248, 113, 113, 0.1);
+
+    color: var(--danger);
+}
+
+
+.escalation-no {
+    background: rgba(74, 222, 128, 0.08);
+
+    color: var(--success);
+}
+
+
+.application-error {
+    padding: 8px;
+
+    border-radius: 7px;
+
+    background: rgba(248, 113, 113, 0.08);
+
+    color: var(--danger);
+
+    font-size: 10px;
+}
+
+
+.sidebar-bottom {
+    margin-top: auto;
+
+    padding: 14px 17px;
+
+    border-top:
+        1px solid var(--border);
+}
+
+
+.system-status {
+    display: flex;
+    align-items: center;
+
+    gap: 8px;
+
+    color: var(--text-muted);
+
+    font-size: 10px;
+}
+
+
+/* =========================================
+   MOBILE: sidebar becomes an off-canvas drawer
+   instead of a fixed-width column, so it no
+   longer squeezes the chat/graph workspace.
+   ========================================= */
+
+@media (max-width: 760px) {
+
+    .sidebar {
+        position: fixed;
+
+        top: 0;
+        left: 0;
+
+        z-index: 1001;
+
+        width: min(82vw, 300px);
+        height: 100dvh;
+
+        transform: translateX(-100%);
+
+        transition: transform 0.25s ease;
+
+        box-shadow:
+            0 0 28px
+            rgba(0, 0, 0, 0.5);
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+}

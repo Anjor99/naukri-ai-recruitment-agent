@@ -5,14 +5,29 @@
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
 
     <title>Naukri AI Support Agent</title>
 
     <link
         rel="stylesheet"
-        href="{{ url_for('static', path='css/style.css') }}"
+        href="/static/css/main.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/static/css/sidebar.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/static/css/chat.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="/static/css/graph.css"
     >
 </head>
 
@@ -20,106 +35,167 @@
 
 <div class="app-shell">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <!-- =====================================================
+         SIDEBAR
+         ===================================================== -->
+
+    <aside
+        id="app-sidebar"
+        class="sidebar"
+    >
 
         <div class="brand">
-            <div class="brand-logo">N</div>
+            <div class="brand-mark">N</div>
 
             <div>
-                <h1>Naukri</h1>
-                <span>AI Support Agent</span>
+                <div class="brand-title">
+                    Naukri AI
+                </div>
+
+                <div class="brand-subtitle">
+                    Support Agent
+                </div>
             </div>
         </div>
 
-        <button
-            id="new-chat-btn"
-            class="new-chat-btn"
-        >
-            <span>＋</span>
-            New conversation
-        </button>
 
         <div class="sidebar-section">
 
-            <div class="sidebar-title">
-                QUICK QUESTIONS
+            <div class="section-heading">
+                Knowledge Base
             </div>
 
-            <button
-                class="suggestion"
-                data-query="What is the notice period policy?"
+            <div
+                id="knowledge-base-list"
+                class="knowledge-list"
             >
-                <span>📋</span>
-                Notice period policy
-            </button>
-
-            <button
-                class="suggestion"
-                data-query="What is the interview scheduling process?"
-            >
-                <span>📅</span>
-                Interview scheduling
-            </button>
-
-            <button
-                class="suggestion"
-                data-query="What are the remote work eligibility rules?"
-            >
-                <span>🏠</span>
-                Remote work eligibility
-            </button>
-
-            <button
-                class="suggestion"
-                data-query="What is the referral bonus policy?"
-            >
-                <span>🎁</span>
-                Referral bonus
-            </button>
+                <div class="loading-small">
+                    Loading knowledge base...
+                </div>
+            </div>
 
         </div>
+
+
+        <div class="sidebar-section application-section">
+
+            <div class="section-heading">
+                Application
+            </div>
+
+            <div class="application-search">
+
+                <input
+                    id="application-id-input"
+                    type="text"
+                    placeholder="APP-0001"
+                    autocomplete="off"
+                >
+
+                <button
+                    id="application-search-btn"
+                    type="button"
+                >
+                    View
+                </button>
+
+            </div>
+
+            <div
+                id="application-result"
+                class="application-result"
+            >
+                <div class="empty-state-small">
+                    Enter an application ID.
+                </div>
+            </div>
+
+        </div>
+
 
         <div class="sidebar-bottom">
 
             <div class="system-status">
-                <span class="status-dot"></span>
 
-                <div>
-                    <strong>Agent Online</strong>
-                    <small>FastAPI + LangGraph</small>
-                </div>
+                <span
+                    id="status-indicator"
+                    class="status-dot"
+                ></span>
+
+                <span id="system-status-text">
+                    Checking system...
+                </span>
+
             </div>
-
-            <a
-                href="/docs"
-                target="_blank"
-                class="api-link"
-            >
-                API Documentation ↗
-            </a>
 
         </div>
 
     </aside>
 
 
-    <!-- MAIN CONTENT -->
-    <main class="main-content">
+    <!-- Overlay shown behind the sidebar when it's opened as a
+         mobile drawer. Clicking it closes the sidebar again. -->
+    <div
+        id="sidebar-backdrop"
+        class="sidebar-backdrop"
+    ></div>
 
-        <!-- HEADER -->
+
+    <!-- =====================================================
+         MAIN AREA
+         ===================================================== -->
+
+    <main class="main-area">
+
+
+        <!-- =================================================
+             HEADER
+             ================================================= -->
+
         <header class="topbar">
 
-            <div class="mobile-brand">
-                <div class="brand-logo">N</div>
-                <strong>Naukri AI</strong>
+            <button
+                id="sidebar-toggle-btn"
+                class="icon-button sidebar-toggle"
+                type="button"
+                aria-label="Toggle menu"
+                aria-controls="app-sidebar"
+                aria-expanded="false"
+            >
+                ☰
+            </button>
+
+            <div>
+
+                <h1>
+                    AI Recruitment & HR Support
+                </h1>
+
+                <p>
+                    LangGraph-powered recruitment assistant
+                </p>
+
             </div>
 
-            <div class="topbar-info">
 
-                <div class="online-indicator">
-                    <span></span>
-                    Online
+            <div class="topbar-actions">
+
+                <button
+                    id="new-chat-btn"
+                    class="secondary-button"
+                    type="button"
+                >
+                    + New conversation
+                </button>
+
+                <div class="connection-status">
+
+                    <span class="status-dot online"></span>
+
+                    <span>
+                        Online
+                    </span>
+
                 </div>
 
             </div>
@@ -127,119 +203,305 @@
         </header>
 
 
-        <!-- CHAT AREA -->
-        <section
-            id="chat-container"
-            class="chat-container"
+        <!-- =================================================
+             VIEW SWITCHER (chat vs. graph)
+             ================================================= -->
+
+        <div
+            class="view-switcher"
+            role="tablist"
+            aria-label="Workspace view"
         >
 
-            <!-- WELCOME SCREEN -->
-            <div
-                id="welcome-screen"
-                class="welcome-screen"
+            <button
+                type="button"
+                class="view-tab active"
+                data-view="chat"
+                role="tab"
+                aria-selected="true"
+                aria-controls="chat-view-panel"
+            >
+                Chat
+            </button>
+
+            <button
+                type="button"
+                class="view-tab"
+                data-view="graph"
+                role="tab"
+                aria-selected="false"
+                aria-controls="graph-view-panel"
+            >
+                Agent Graph
+            </button>
+
+        </div>
+
+
+        <!-- =================================================
+             CONTENT GRID
+             ================================================= -->
+
+        <section class="workspace">
+
+
+            <!-- =============================================
+                 CHAT
+                 ============================================= -->
+
+            <section
+                id="chat-view-panel"
+                class="chat-panel"
             >
 
-                <div class="welcome-icon">
-                    ✦
-                </div>
+                <div class="panel-header">
 
-                <h2>
-                    How can I help you?
-                </h2>
+                    <div>
 
-                <p>
-                    Ask about recruitment policies,
-                    hiring processes, or check an
-                    application status.
-                </p>
+                        <h2>
+                            Conversation
+                        </h2>
 
-                <div class="welcome-examples">
+                        <span
+                            id="conversation-id"
+                            class="conversation-id"
+                        >
+                            New conversation
+                        </span>
 
-                    <button
-                        class="example-card"
-                        data-query="What is the notice period policy?"
+                    </div>
+
+                    <div
+                        id="route-badge"
+                        class="route-badge hidden"
                     >
-                        <span>📋</span>
-                        <strong>Notice period</strong>
-                        <small>
-                            Learn about notice requirements
-                        </small>
-                    </button>
-
-                    <button
-                        class="example-card"
-                        data-query="What is the interview scheduling process?"
-                    >
-                        <span>📅</span>
-                        <strong>Interview process</strong>
-                        <small>
-                            Understand interview scheduling
-                        </small>
-                    </button>
-
-                    <button
-                        class="example-card"
-                        data-query="Check the status of APP-0001"
-                    >
-                        <span>🔎</span>
-                        <strong>Application status</strong>
-                        <small>
-                            Check an application
-                        </small>
-                    </button>
+                    </div>
 
                 </div>
 
-            </div>
+
+                <div
+                    id="chat-messages"
+                    class="chat-messages"
+                >
+
+                    <div class="welcome-message">
+
+                        <div class="welcome-icon">
+                            ✦
+                        </div>
+
+                        <h2>
+                            How can I help?
+                        </h2>
+
+                        <p>
+                            Ask about recruitment policies,
+                            application status, eligibility,
+                            notice periods, interviews and more.
+                        </p>
+
+
+                        <div class="suggestion-grid">
+
+                            <button
+                                class="suggestion-button"
+                                data-query="What is the interview process?"
+                            >
+                                Interview process
+                            </button>
+
+                            <button
+                                class="suggestion-button"
+                                data-query="What is the notice period policy?"
+                            >
+                                Notice period
+                            </button>
+
+                            <button
+                                class="suggestion-button"
+                                data-query="What is the remote work policy?"
+                            >
+                                Remote work
+                            </button>
+
+                            <button
+                                class="suggestion-button"
+                                data-query="Give me the status of APP-0001"
+                            >
+                                Application status
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="chat-input-area">
+
+                    <form id="chat-form">
+
+                        <textarea
+                            id="chat-input"
+                            rows="1"
+                            placeholder="Ask about recruitment, HR policies or your application..."
+                        ></textarea>
+
+                        <button
+                            id="send-button"
+                            type="submit"
+                        >
+                            <span>Send</span>
+                            <span class="send-icon">➤</span>
+                        </button>
+
+                    </form>
+
+                    <div class="input-hint">
+                        Press Enter to send · Shift + Enter for new line
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =============================================
+                 AGENT GRAPH
+                 ============================================= -->
+
+            <section class="graph-panel hidden" id="graph-view-panel">
+
+                <div class="panel-header">
+
+                    <div>
+
+                        <h2>
+                            Agent Graph
+                        </h2>
+
+                        <span>
+                            Live LangGraph topology
+                        </span>
+
+                    </div>
+
+                    <button
+                        id="refresh-graph-btn"
+                        class="icon-button"
+                        type="button"
+                        title="Refresh graph"
+                    >
+                        ↻
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="graph-container"
+                    class="graph-container"
+                >
+
+                    <div class="graph-loading">
+                        Loading agent graph...
+                    </div>
+
+                </div>
+
+
+                <div class="graph-legend">
+
+                    <div>
+                        <span class="legend-dot router"></span>
+                        Router
+                    </div>
+
+                    <div>
+                        <span class="legend-dot processing"></span>
+                        Processing
+                    </div>
+
+                    <div>
+                        <span class="legend-dot response"></span>
+                        Response
+                    </div>
+
+                </div>
+
+            </section>
 
         </section>
 
 
-        <!-- INPUT AREA -->
-        <footer class="input-area">
+        <!-- =================================================
+             DEBUG / REQUEST INFO
+             ================================================= -->
 
-            <div class="input-wrapper">
+        <section class="debug-bar">
 
-                <textarea
-                    id="message-input"
-                    rows="1"
-                    placeholder="Ask about recruitment or your application..."
-                    autocomplete="off"
-                ></textarea>
+            <div class="debug-item">
 
-                <button
-                    id="send-btn"
-                    class="send-btn"
-                    aria-label="Send message"
+                <span class="debug-label">
+                    Route
+                </span>
+
+                <span
+                    id="debug-route"
+                    class="debug-value"
                 >
-                    <span>➤</span>
-                </button>
-
-            </div>
-
-            <div class="input-footer">
-
-                <span>
-                    AI-generated responses may require verification.
-                </span>
-
-                <span id="conversation-label">
-                    New conversation
+                    —
                 </span>
 
             </div>
 
-        </footer>
+
+            <div class="debug-item">
+
+                <span class="debug-label">
+                    Trace ID
+                </span>
+
+                <span
+                    id="debug-trace"
+                    class="debug-value"
+                >
+                    —
+                </span>
+
+            </div>
+
+
+            <div class="debug-item">
+
+                <span class="debug-label">
+                    Record
+                </span>
+
+                <span
+                    id="debug-record"
+                    class="debug-value"
+                >
+                    —
+                </span>
+
+            </div>
+
+        </section>
 
     </main>
 
 </div>
 
 
-<!-- JAVASCRIPT -->
-<script
-    src="{{ url_for('static', path='js/app.js') }}"
-></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/chat.js"></script>
+<script src="/static/js/knowledge-base.js"></script>
+<script src="/static/js/application.js"></script>
+<script src="/static/js/graph.js"></script>
+<script src="/static/js/app.js"></script>
 
 </body>
 </html>
