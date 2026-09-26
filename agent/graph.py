@@ -88,3 +88,38 @@ async def invoke_with_timeout(
         raise GraphTimeoutError(
             f"Graph exceeded global timeout of {timeout:.2f} seconds."
         ) from exc
+        
+def get_graph_structure() -> dict:
+    """
+    Return the current LangGraph structure for frontend visualization.
+
+    This builds the graph without a checkpointer because the frontend
+    only needs the topology (nodes and edges).
+    """
+
+    graph = build_graph()
+
+    drawable_graph = graph.get_graph()
+
+    nodes = [
+        {
+            "id": node.id,
+            "label": node.name or node.id,
+            "type": getattr(node, "type", None),
+        }
+        for node in drawable_graph.nodes.values()
+    ]
+
+    edges = [
+        {
+            "source": edge.source,
+            "target": edge.target,
+            "conditional": getattr(edge, "conditional", False),
+        }
+        for edge in drawable_graph.edges
+    ]
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+    }

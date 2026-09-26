@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -20,6 +20,7 @@ from agent.api.models import (
     AskRequest,
     AskResponse,
 )
+from agent.graph import get_graph_structure
 
 
 app = FastAPI()
@@ -294,3 +295,106 @@ def add_document_endpoint(
     request: AddDocumentRequest,
 ):
     return add_document(request)
+
+@app.get("/graph")
+def get_graph():
+    """
+    Return the current compiled LangGraph structure.
+
+    The frontend uses this endpoint to render the graph dynamically,
+    so adding/removing nodes or edges in graph.py automatically
+    updates the UI.
+    """
+    try:
+        return get_graph_structure()
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to inspect graph: {exc}",
+        )
+
+
+@app.get("/knowledge-base")
+def get_knowledge_base():
+    """
+    Return all knowledge-base documents.
+
+    The frontend uses this to automatically create one button
+    per knowledge-base document.
+    """
+    knowledge_base_dir = BASE_DIR / "knowledge_base"
+
+    if not knowledge_base_dir.exists():
+        return {
+            "documents": []
+        }
+
+    documents = []
+
+    for file_path in sorted(knowledge_base_dir.glob("*.txt")):
+        documents.append(
+            {
+                "id": file_path.stem,
+                "name": file_path.stem.replace("_", " ").title(),
+                "filename": file_path.name,
+            }
+        )
+
+    return {
+        "documents": documents
+    }
+
+
+@app.get("/application/{record_id}")
+def get_application(record_id: str):
+    """
+    Return application details for the frontend application viewer.
+    """
+    from dataset import JOB_APPLICATIONS
+
+    normalized_id = record_id.upper()
+
+    record = next(
+        (
+            application
+            for application in JOB_APPLICATIONS
+            if application["record_id"].upper() == normalized_id
+        ),
+        None,
+    )
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No application found with record_id: {normalized_id}",
+        )
+
+    flag_component = (
+        1.0
+        if record["flagged_priority_review"]
+        else 0.0
+    )
+
+    recency_score = (
+        30 - record["days_since_created"]
+    ) / 30
+
+    escalation_score = round(
+        0.5 * flag_component
+        + 0.5 * (1.0 - recency_score),
+        4,
+    )
+
+    return {
+        "record_id": record["record_id"],
+        "category": record["category"],
+        "status": record["status"],
+        "expected_salary_inr": record["expected_salary_inr"],
+        "days_since_created": record["days_since_created"],
+        "flagged_priority_review": record[
+            "flagged_priority_review"
+        ],
+        "escalation_score": escalation_score,
+        "recommend_escalation": escalation_score >= 0.88,
+    }
