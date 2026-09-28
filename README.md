@@ -1,3 +1,12 @@
+---
+title: Naukri AI Support Agent
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+---
+
 # Naukri.com — AI Recruitment & HR Support Agent
 
 An AI-powered recruitment and HR support agent built for the **Naukri.com — Recruitment & HR** capstone track.
